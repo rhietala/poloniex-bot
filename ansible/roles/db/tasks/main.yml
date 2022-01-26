@@ -1,0 +1,19 @@
+---
+- name: create database
+  become: yes
+  become_user: "postgres"
+  postgresql_db:
+    name: "{{ db_name }}"
+
+- name: create db user
+  become: yes
+  become_user: "postgres"
+  postgresql_user:
+    db: "{{ db_name }}"
+    name: "{{ db_user }}"
+    password: "{{ db_pass }}"
+
+- name: add .env file for application
+  template:
+    src: "env.j2"
+    dest: "/root/.env"

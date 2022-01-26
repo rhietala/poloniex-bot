@@ -1,0 +1,9 @@
+---
+- hosts: all
+  roles:
+    # - "server"
+    - "db"
+
+
+# ei asenna rustia, täytyy tehdä käsin
+# curl https://sh.rustup.rs -sSf | sh
