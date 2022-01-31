@@ -4,7 +4,8 @@ extern crate dotenv;
 
 pub mod schema;
 pub mod models;
-pub mod poloniex;
+pub mod chart_data;
+pub mod ticker;
 pub mod ride_the_wave;
 
 use diesel::prelude::*;
@@ -20,3 +21,4 @@ pub fn establish_connection() -> PgConnection {
     PgConnection::establish(&database_url)
         .expect(&format!("Error connecting to {}", database_url))
 }
+

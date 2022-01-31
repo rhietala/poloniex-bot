@@ -11,42 +11,39 @@ const PERIOD: i32 = 900;
 const CANDLES: i32 = 400;
 const BASE: &str = "USDT";
 
-fn read_quotes() -> Result<String, Box<dyn std::error::Error>> {
-    use std::fs::File;
-    use std::io::prelude::*;
-
-    let mut file = File::open("included-symbols.txt")?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-
-    Ok(contents)
-}
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use self::poloniex::*;
-    use self::ride_the_wave::{analyze};
+    use self::chart_data::*;
+    use self::ride_the_wave::analyze;
     use self::schema::candles;
+    use self::ticker::*;
+
+    let quotes = return_ticker(BASE.to_string()).unwrap();
 
     let connection = establish_connection();
     let period = i32::try_from(PERIOD)?;
-    let quotes = read_quotes()?;
-    for quote in quotes.split('\n') {
-        let chart_datas = fetch_data(
+
+    for quote in quotes {
+        match return_chart_data(
             &connection,
             BASE.to_string(),
-            quote.to_string().clone(),
+            quote.clone(),
             PERIOD,
             CANDLES,
-        )?;
+        ) {
+            Ok(chart_datas) => {
+                let candles: Vec<Candle> = chart_datas
+                    .iter()
+                    .map(|&cd| {
+                        chart_data_to_candle(BASE.to_string(), quote.to_string(), period, cd)
+                    })
+                    .collect();
 
-        let candles: Vec<Candle> = chart_datas
-            .iter()
-            .map(|&cd| chart_data_to_candle(BASE.to_string(), quote.to_string(), period, cd))
-            .collect();
-
-        diesel::insert_into(candles::table)
-            .values(&candles)
-            .execute(&connection)?;
+                diesel::insert_into(candles::table)
+                    .values(&candles)
+                    .execute(&connection)?;
+            }
+            Err(_) => ()
+        }
     }
 
     analyze(&connection, BASE.to_string(), period)?;

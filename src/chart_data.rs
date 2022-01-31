@@ -22,7 +22,12 @@ pub struct PoloniexChartData {
     pub weighted_average: f32,
 }
 
-pub fn chart_data_to_candle(base: String, quote: String, period: i32, cd: PoloniexChartData) -> Candle {
+pub fn chart_data_to_candle(
+    base: String,
+    quote: String,
+    period: i32,
+    cd: PoloniexChartData,
+) -> Candle {
     Candle {
         base: base,
         quote: quote,
@@ -37,12 +42,12 @@ pub fn chart_data_to_candle(base: String, quote: String, period: i32, cd: Poloni
     }
 }
 
-pub fn fetch_data(
+pub fn return_chart_data(
     connection: &PgConnection,
     base: String,
     quote: String,
     period: i32,
-    max_candles: i32
+    max_candles: i32,
 ) -> Result<Vec<PoloniexChartData>, Box<dyn std::error::Error>> {
     let client = reqwest::blocking::Client::new();
     let now = Utc::now().timestamp();
@@ -59,7 +64,7 @@ pub fn fetch_data(
         end.to_string().as_str()
     );
 
-    let ret: Vec<PoloniexChartData> = client
+    let ret = client
         .get(API_URL)
         .query(&[
             ("command", "returnChartData"),
