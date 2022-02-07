@@ -18,3 +18,11 @@ jobs:
         with:
           command: build
           args: --release --all-features
+      - name: Copy application to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "target/release/*"
+          target: "bot/"
