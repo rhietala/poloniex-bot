@@ -19,13 +19,21 @@ pub fn analyze(connection: &PgConnection, base: String, period: i32) -> Result<u
           base = '{base}'
           AND period = {period}
           AND timestamp > (current_timestamp - interval '24 hours')
+          -- filter out instruments
+          AND quote NOT LIKE '%BULL'
+          AND quote NOT LIKE '%BEAR'
         GROUP BY
           quote,
           base,
           period
         HAVING
+          -- filter out those with too small daily volume in base unit (USDT)
           SUM(volume) > 3000
+          -- filter out those that don't have recent data
           AND MAX(timestamp) > (current_timestamp - interval '30 minutes')
+          -- filter out those with too small minimum quote value
+          -- (these have too high %-change with single pips)
+          AND MIN(average) > 1e-6
       ),
       analyzed AS (
         SELECT
@@ -79,10 +87,13 @@ pub fn analyze(connection: &PgConnection, base: String, period: i32) -> Result<u
       WHERE
         -- actual logic: current value must be above 10-period moving average,
         -- which must be above 30-period MA, which must be above 200-period MA
+        -- and the current average must be 0.1% higher than 30-period MA
+        -- to filter out the stablecoins
         (
           average > ma10
           AND ma10 > ma30
           AND ma30 > ma200
+          AND average / ma30 > 0.001
         ) is true);
     ", base = base, period = period),
     )
