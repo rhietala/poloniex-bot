@@ -1,9 +1,11 @@
 ---
 - hosts: all
   roles:
-    # - "server"
+    - "server"
     - "db"
+    - "app"
 
 
 # ei asenna rustia, täytyy tehdä käsin
 # curl https://sh.rustup.rs -sSf | sh
+# cargo install diesel_cli --no-default-features --features postgres

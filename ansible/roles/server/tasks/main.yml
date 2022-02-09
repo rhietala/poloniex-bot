@@ -28,6 +28,7 @@
 - name: Install required packages
   apt:
     name:
+      - "gcc"
       - "curl"
       - "gnupg2"
       - "git"
@@ -38,6 +39,8 @@
       - "ufw"
       - "systemd-timesyncd"
       - "postgresql"
+      - "libpq5"
+      - "libpq-dev"
       - "python3-psycopg2"
 
 # without this, there was an error when enabling the firewall:

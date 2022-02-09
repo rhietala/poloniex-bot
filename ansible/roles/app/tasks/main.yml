@@ -1,0 +1,9 @@
+---
+- name: Add data fetching to crontab
+  cron:
+    name: "fetch data"
+    hour: "*"
+    minute: "*/5"
+    weekday: "*"
+    user: "root"
+    job: "DATABASE_URL=postgres://{{ db_user }}:{{ db_pass }}@localhost/{{ db_name }} /root/bot/target/release/fetch_data > /dev/null"
