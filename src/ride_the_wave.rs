@@ -85,15 +85,16 @@ pub fn analyze(connection: &PgConnection, base: String, period: i32) -> Result<u
       FROM
         (SELECT * FROM analyzed) AS analyzed
       WHERE
-        -- actual logic: current value must be above 10-period moving average,
-        -- which must be above 30-period MA, which must be above 200-period MA
-        -- and the current average must be 0.1% higher than 30-period MA
-        -- to filter out the stablecoins
         (
+          -- actual logic: current value must be above 10-period moving average,
+          -- which must be above 30-period MA, which must be above 200-period MA
           average > ma10
           AND ma10 > ma30
           AND ma30 > ma200
+          -- filter out too small changes from moving average (stablecoins)
           AND average / ma30 > 0.001
+          -- and too large changes, too strange situations
+          AND average / ma30 < 0.100
         ) is true);
     ", base = base, period = period),
     )
