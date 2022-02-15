@@ -7,6 +7,7 @@ pub mod models;
 pub mod chart_data;
 pub mod ticker;
 pub mod ride_the_wave;
+pub mod order_book;
 
 use diesel::prelude::*;
 use diesel::pg::PgConnection;
