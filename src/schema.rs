@@ -16,13 +16,28 @@ table! {
 table! {
     shortlist (quote) {
         quote -> Varchar,
-        timestamp -> Nullable<Timestamptz>,
-        average -> Nullable<Float4>,
-        confidence -> Nullable<Float4>,
+        timestamp -> Timestamptz,
+        average -> Float4,
+        confidence -> Float4,
+    }
+}
+
+table! {
+    trade (id) {
+        id -> Int4,
+        base -> Varchar,
+        quote -> Varchar,
+        open_at -> Timestamptz,
+        close_at -> Nullable<Timestamptz>,
+        open_average -> Float4,
+        target -> Float4,
+        open -> Nullable<Float4>,
+        close -> Nullable<Float4>,
     }
 }
 
 allow_tables_to_appear_in_same_query!(
     candles,
     shortlist,
+    trade,
 );
