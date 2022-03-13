@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use super::schema::{candles, shortlist, trade};
+use super::schema::{candles, shortlist, trades};
 
 #[derive(Debug, Insertable, Queryable)]
 #[table_name="candles"]
@@ -26,15 +26,25 @@ pub struct Shortlist {
     pub confidence: f32,
 }
 
-#[derive(Debug, Insertable, Queryable)]
-#[table_name="trade"]
+#[derive(Debug, Queryable)]
 pub struct Trade {
     pub id: i32,
     pub base: String,
     pub quote: String,
     pub open_at: DateTime<Utc>,
     pub close_at: Option<DateTime<Utc>>,
+    pub open_average: f32,
     pub target: f32,
     pub open: Option<f32>,
     pub close: Option<f32>,
+}
+
+#[derive(Debug, Insertable)]
+#[table_name="trades"]
+pub struct NewTrade {
+    pub base: String,
+    pub quote: String,
+    pub target: f32,
+    pub open_average: f32,
+    pub open_at: DateTime<Utc>,
 }

@@ -15,28 +15,14 @@ struct Command {
     channel: String,
 }
 
-// enum OrderType { Bid, Ask }
-
-// struct OrderBookEntry {
-//     order_type: OrderType,
-// }
-
-// #[derive(Serialize, Deserialize, Debug)]
-// struct OrderBook {
-// }
-
 fn main() {
-    use self::order_book::{HEARTBEAT_ID, parse_message, parse_orderbook, OrderBook, update_orderbook};
+    use self::order_book::{HEARTBEAT_ID, find_middle, parse_message, parse_orderbook, OrderBook, update_orderbook};
     env_logger::init();
 
     let (mut socket, response) = connect(Url::parse(API_URL).unwrap()).expect("Can't connect");
 
     println!("Connected to the server");
     println!("Response HTTP code: {}", response.status());
-    // println!("Response contains the following headers:");
-    // for (ref header, _value) in response.headers() {
-    //     println!("* {}", header);
-    // }
 
     let subscribe_command = Command {
         command: "subscribe".to_string(),
@@ -65,16 +51,22 @@ fn main() {
         if channel_id == Some(parsed.channel_id) {
             for msg in parsed.messages.into_iter() {
                 let command: String = serde_json::from_value(msg[0].clone()).unwrap();
-                println!("command {}", command);
                 order_book = match command.as_str() {
                     // update whole order book
                     "i" => parse_orderbook(msg[1].clone()),
                     "o" => update_orderbook(order_book, msg),
                     _ => order_book,
+                };
+                match order_book.clone() {
+                    Some(ob) => {
+                        let middle = find_middle(ob);
+                        println!("{:?}", middle);
+                    },
+                    None => ()
                 }
             }
         }
         // println!("{:?}", order_book);
     }
-    // socket.close(None);
+    socket.close(None);
 }

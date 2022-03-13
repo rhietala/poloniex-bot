@@ -32,6 +32,7 @@ pub fn analyze(
           -- filter out instruments
           AND quote NOT LIKE '%BULL'
           AND quote NOT LIKE '%BEAR'
+          AND quote != 'GLYPH'
         GROUP BY
           quote,
           base,

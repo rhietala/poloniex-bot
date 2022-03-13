@@ -23,7 +23,7 @@ table! {
 }
 
 table! {
-    trade (id) {
+    trades (id) {
         id -> Int4,
         base -> Varchar,
         quote -> Varchar,
@@ -39,5 +39,5 @@ table! {
 allow_tables_to_appear_in_same_query!(
     candles,
     shortlist,
-    trade,
+    trades,
 );

@@ -1,5 +1,5 @@
 -- Your SQL goes here
-CREATE TABLE trade (
+CREATE TABLE trades (
   id SERIAL PRIMARY KEY NOT NULL,
   base VARCHAR(20) NOT NULL,
   quote VARCHAR(20) NOT NULL,

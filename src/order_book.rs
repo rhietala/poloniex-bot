@@ -35,6 +35,12 @@ pub struct OrderBookEntry {
 
 pub type OrderBook = HashMap<String, OrderBookEntry>;
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct OrderBookMiddle {
+    highest_bid: Option<OrderBookEntry>,
+    lowest_ask: Option<OrderBookEntry>,
+}
+
 pub fn parse_message(input: String) -> PoloniexMessage {
     let parsed: Vec<Value> = serde_json::from_str(&input).unwrap();
     let channel_id: u32 = serde_json::from_value(parsed[0].clone()).unwrap();
@@ -54,6 +60,32 @@ pub fn parse_message(input: String) -> PoloniexMessage {
             }
         }
     }
+}
+
+pub fn find_middle(order_book: OrderBook) -> OrderBookMiddle {
+    let mut highest_bid: Option<OrderBookEntry> = None;
+    let mut lowest_ask: Option<OrderBookEntry> = None;
+
+    for entry in order_book.into_values() {
+        match entry.order_type {
+            OrderType::Bid => {
+                match highest_bid {
+                    None => { highest_bid = Some(entry) }
+                    Some(h) if { entry.price > h.price } => { highest_bid = Some(entry) }
+                    _ => ()
+                }
+            },
+            OrderType::Ask => {
+                match lowest_ask {
+                    None => { lowest_ask = Some(entry) }
+                    Some(l) if { entry.price < l.price } => { lowest_ask = Some(entry) }
+                    _ => ()
+                }
+            }
+        }
+    }
+
+    OrderBookMiddle { highest_bid: highest_bid, lowest_ask: lowest_ask }
 }
 
 pub fn update_orderbook(order_book: Option<OrderBook>, input: Value) -> Option<OrderBook> {
