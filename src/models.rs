@@ -17,7 +17,7 @@ pub struct Candle {
     pub volume: Option<f32>,
 }
 
-#[derive(Debug, Insertable, Queryable)]
+#[derive(Debug, Insertable, Queryable, Clone)]
 #[table_name="shortlist"]
 pub struct Shortlist {
     pub quote: String,
