@@ -23,6 +23,7 @@ pub struct Shortlist {
     pub quote: String,
     pub timestamp: DateTime<Utc>,
     pub average: f32,
+    pub target: f32,
     pub confidence: f32,
 }
 

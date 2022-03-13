@@ -90,10 +90,11 @@ pub fn analyze(
           quote,
           timestamp DESC
       )
-      INSERT INTO shortlist(quote, timestamp, average, confidence) (SELECT
+      INSERT INTO shortlist(quote, timestamp, average, target, confidence) (SELECT
         quote,
         NOW(),
         average,
+        ma_short as target,
         average / ma_med as confidence
       FROM
         (SELECT * FROM analyzed) AS analyzed

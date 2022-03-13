@@ -18,6 +18,7 @@ table! {
         quote -> Varchar,
         timestamp -> Timestamptz,
         average -> Float4,
+        target -> Float4,
         confidence -> Float4,
     }
 }

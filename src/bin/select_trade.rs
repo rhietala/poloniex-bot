@@ -18,7 +18,7 @@ fn create_trade(
     let new_trade = NewTrade {
         base: BASE.to_string(),
         quote: shortlist.quote.clone(),
-        target: shortlist.average,
+        target: shortlist.target,
         open_average: shortlist.average,
         open_at: Utc::now(),
     };

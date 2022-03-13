@@ -68,5 +68,5 @@ fn main() {
         }
         // println!("{:?}", order_book);
     }
-    socket.close(None);
+    // socket.close(None);
 }
