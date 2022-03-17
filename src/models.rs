@@ -27,7 +27,8 @@ pub struct Shortlist {
     pub confidence: f32,
 }
 
-#[derive(Debug, Queryable)]
+#[derive(Debug, Identifiable, Insertable, Queryable, Clone)]
+#[table_name="trades"]
 pub struct Trade {
     pub id: i32,
     pub base: String,

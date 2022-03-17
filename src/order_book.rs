@@ -1,9 +1,17 @@
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+use tungstenite::{connect, Message};
+use url::Url;
+
+use crate::diesel::prelude::*;
+use crate::models::*;
+
+const API_URL: &str = "wss://api2.poloniex.com";
 
 pub const HEARTBEAT_ID: u32 = 1010;
-const SIZE_EPSILON: f64 = 1e-10;
+const F64_EPSILON: f64 = 1e-10;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct PoloniexMessage {
@@ -41,6 +49,12 @@ pub struct OrderBookMiddle {
     lowest_ask: Option<OrderBookEntry>,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct Command {
+    command: String,
+    channel: String,
+}
+
 pub fn parse_message(input: String) -> PoloniexMessage {
     let parsed: Vec<Value> = serde_json::from_str(&input).unwrap();
     let channel_id: u32 = serde_json::from_value(parsed[0].clone()).unwrap();
@@ -68,24 +82,23 @@ pub fn find_middle(order_book: OrderBook) -> OrderBookMiddle {
 
     for entry in order_book.into_values() {
         match entry.order_type {
-            OrderType::Bid => {
-                match highest_bid {
-                    None => { highest_bid = Some(entry) }
-                    Some(h) if { entry.price > h.price } => { highest_bid = Some(entry) }
-                    _ => ()
-                }
+            OrderType::Bid => match highest_bid {
+                None => highest_bid = Some(entry),
+                Some(h) if { entry.price > h.price } => highest_bid = Some(entry),
+                _ => (),
             },
-            OrderType::Ask => {
-                match lowest_ask {
-                    None => { lowest_ask = Some(entry) }
-                    Some(l) if { entry.price < l.price } => { lowest_ask = Some(entry) }
-                    _ => ()
-                }
-            }
+            OrderType::Ask => match lowest_ask {
+                None => lowest_ask = Some(entry),
+                Some(l) if { entry.price < l.price } => lowest_ask = Some(entry),
+                _ => (),
+            },
         }
     }
 
-    OrderBookMiddle { highest_bid: highest_bid, lowest_ask: lowest_ask }
+    OrderBookMiddle {
+        highest_bid: highest_bid,
+        lowest_ask: lowest_ask,
+    }
 }
 
 pub fn update_orderbook(order_book: Option<OrderBook>, input: Value) -> Option<OrderBook> {
@@ -99,7 +112,7 @@ pub fn update_orderbook(order_book: Option<OrderBook>, input: Value) -> Option<O
         1 => OrderType::Bid,
         _ => OrderType::Ask,
     };
-    let new_val = if size < SIZE_EPSILON {
+    let new_val = if size < F64_EPSILON {
         None
     } else {
         Some(OrderBookEntry {
@@ -113,12 +126,10 @@ pub fn update_orderbook(order_book: Option<OrderBook>, input: Value) -> Option<O
         None => None,
         Some(ob) => {
             let mut new_ob = ob.clone();
-            println!("new: {:?}", new_val);
-            let old_val = match new_val {
+            match new_val {
                 None => new_ob.remove(&price_s),
                 Some(val) => new_ob.insert(price_s, val),
             };
-            println!("old: {:?}", old_val);
             Some(new_ob)
         }
     }
@@ -155,6 +166,104 @@ pub fn parse_orderbook(input: Value) -> Option<OrderBook> {
     }
 
     Some(ret)
+}
+
+pub fn do_buy(
+    connection: &PgConnection,
+    trade: &Trade,
+    lowest_ask: OrderBookEntry,
+) -> Result<Option<Trade>, Box<dyn std::error::Error>> {
+    use crate::schema::trades::dsl::*;
+
+    let new_open: f32 = lowest_ask.price as f32;
+    let updated_trade = diesel::update(trade)
+        .set((open_at.eq(Utc::now()), open.eq(Some(new_open))))
+        .get_result::<Trade>(connection)
+        .unwrap();
+
+    Ok(Some(updated_trade))
+}
+
+pub fn do_trade(connection: &PgConnection, trade: &Trade) {
+    let (mut socket, _response) = connect(Url::parse(API_URL).unwrap()).expect("Can't connect");
+
+    let subscribe_command = Command {
+        command: "subscribe".to_string(),
+        channel: format!("USDT_{}", trade.quote).to_string(),
+    };
+
+    socket
+        .write_message(Message::Text(
+            serde_json::to_string(&subscribe_command).unwrap(),
+        ))
+        .unwrap();
+
+    let mut channel_id: Option<u32> = None;
+    let mut order_book: Option<OrderBook> = None;
+    let mut buy_value: Option<f32> = None;
+    let mut prev_highest_bid: Option<f64> = None;
+
+    loop {
+        let msg_s = socket.read_message().expect("Error reading message");
+        let parsed = parse_message(msg_s.to_string());
+
+        if channel_id == None && parsed.channel_id != HEARTBEAT_ID {
+            channel_id = Some(parsed.channel_id);
+        }
+
+        if channel_id == Some(parsed.channel_id) {
+            for msg in parsed.messages.into_iter() {
+                let command: String = serde_json::from_value(msg[0].clone()).unwrap();
+                order_book = match command.as_str() {
+                    // update whole order book
+                    "i" => parse_orderbook(msg[1].clone()),
+                    "o" => update_orderbook(order_book, msg),
+                    _ => order_book,
+                };
+                match order_book.clone() {
+                    Some(ob) => {
+                        match (find_middle(ob), buy_value, prev_highest_bid) {
+                            (
+                                OrderBookMiddle {
+                                    highest_bid: Some(highest_bid),
+                                    lowest_ask: Some(lowest_ask),
+                                },
+                                None,
+                                _
+                            ) => {
+                                let buy_trade = do_buy(connection, trade, lowest_ask).unwrap();
+                                println!("{:?}", buy_trade);
+                                match buy_trade {
+                                    Some(bt) => buy_value = bt.open,
+                                    None => (),
+                                }
+                                prev_highest_bid = Some(highest_bid.price)
+                            }
+                            (
+                                OrderBookMiddle {
+                                    highest_bid: Some(highest_bid),
+                                    lowest_ask: _,
+                                },
+                                Some(buy_value),
+                                Some(phb)
+                            ) if (phb - highest_bid.price).abs() > F64_EPSILON  => {
+                                println!(
+                                    "Current highest bid: {}, trade at {}",
+                                    highest_bid.price,
+                                    highest_bid.price / f64::from(buy_value)
+                                );
+                                prev_highest_bid = Some(highest_bid.price);
+                            }
+                            _ => (),
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        }
+        // println!("{:?}", order_book);
+    }
+    // socket.close(None);
 }
 
 #[cfg(test)]

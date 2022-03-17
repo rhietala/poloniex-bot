@@ -6,6 +6,7 @@ use chrono::Utc;
 use self::diesel::prelude::*;
 use self::models::*;
 use self::poloniex_bot::*;
+use self::order_book::do_trade;
 
 const BASE: &str = "USDT";
 
@@ -76,19 +77,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let shortlist = get_shortlist(&connection).unwrap();
 
-    let trade: Option<Trade> = match shortlist {
+    match shortlist {
         Some(shortlist) => {
             println!("Found {:?}", shortlist.quote);
 
             if is_trade_open(&connection, &shortlist).unwrap() {
                 println!("Trade already ongoing");
-                None
             } else {
                 println!("Starting to trade");
-                Some(create_trade(&connection, &shortlist).unwrap())
+                let trade = create_trade(&connection, &shortlist).unwrap();
+                do_trade(&connection, &trade);
             }
         }
-        None => None,
+        None => (),
     };
 
     Ok(())
