@@ -5,8 +5,8 @@ use chrono::Utc;
 
 use self::diesel::prelude::*;
 use self::models::*;
-use self::poloniex_bot::*;
 use self::order_book::do_trade;
+use self::poloniex_bot::*;
 
 const BASE: &str = "USDT";
 
@@ -65,8 +65,13 @@ fn get_shortlist(
         .unwrap();
 
     match rows.get(0) {
-        Some(row) => { Ok(Some((*row).clone())) }
-        None => Ok(None)
+        Some(row) => {
+            diesel::delete(shortlist.filter(quote.eq(row.quote.clone())))
+                .execute(connection)
+                .unwrap();
+            Ok(Some((*row).clone()))
+        }
+        None => Ok(None),
     }
 }
 

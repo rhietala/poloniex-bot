@@ -13,7 +13,7 @@ const BASE: &str = "USDT";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use self::chart_data::*;
-    use self::ride_the_wave::analyze;
+    use self::ride_the_wave::{update_shortlist, update_trades};
     use self::schema::candles;
     use self::ticker::*;
 
@@ -46,7 +46,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    analyze(&connection, BASE.to_string(), period)?;
+    update_trades(&connection, BASE.to_string(), period)?;
+    update_shortlist(&connection, BASE.to_string(), period)?;
 
     Ok(())
 }
