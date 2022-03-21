@@ -228,12 +228,15 @@ pub fn do_trade(connection: &PgConnection, trade: &Trade) {
                 prev_highest_bid = ret.3;
             }
         }
-        if !continue_trade {
+        if !continue_trade && order_book == None {
+            // delete the trade that was never started
             use crate::schema::trades::dsl::*;
             diesel::delete(trades.filter(id.eq(trade.id)))
                 .execute(connection)
                 .unwrap();
 
+        }
+        if !continue_trade {
             break;
         }
     }
@@ -262,12 +265,12 @@ fn check_sell(
             ((highest_bid.price / f64::from(current_trade.open.unwrap())) - 1.0) * 100.0
         );
 
-        diesel::update(current_trade)
+        diesel::update(trade)
             .set((
                 close_at.eq(Utc::now()),
                 close.eq(Some(highest_bid.price as f32)),
             ))
-            .get_result::<Trade>(connection)
+            .execute(connection)
             .unwrap();
 
         return Ok(false);
@@ -340,7 +343,7 @@ fn do_message(
 
                 let continue_trade = check_sell(connection, trade, highest_bid).unwrap();
                 if !continue_trade {
-                    return (false, None, None, None);
+                    return (false, order_book, Some(buy_value), prev_highest_bid);
                 }
             }
             _ => (),
