@@ -92,7 +92,7 @@ pub fn update_shortlist(
           period
         HAVING
           -- filter out those with too small daily volume in base unit (USDT)
-          SUM(volume) > 3000
+          SUM(volume) > 10000
           -- filter out those that don't have recent data
           AND MAX(timestamp) > (current_timestamp - interval '30 minutes')
           -- filter out those with too small minimum quote value

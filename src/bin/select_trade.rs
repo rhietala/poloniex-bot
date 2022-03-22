@@ -61,6 +61,7 @@ fn get_shortlist(
     let rows = shortlist
         .limit(1)
         .order(confidence.desc())
+        .filter(confidence.lt(1.03))
         .load::<Shortlist>(connection)
         .unwrap();
 
