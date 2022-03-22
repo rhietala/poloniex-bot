@@ -161,7 +161,7 @@ pub fn update_trades(
         ) as temp(quote, target)
       WHERE
         trades.quote = temp.quote AND
-        trades.closed_at IS NULL
+        trades.close_at IS NULL
     ",
         analyzed = get_analyze_sql(base, period)
     ))
