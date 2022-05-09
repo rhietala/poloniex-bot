@@ -36,9 +36,11 @@ The idea is to find the most trending coins and bet on them.
 ## APIs used
 
 - [returnChartData](https://docs.poloniex.com/#returnchartdata) REST API gives
-  historical data for crypto coin prices.
+  historical data for crypto coin prices. API communication and response types are in
+  [chart_data.rs](src/chart_data.rs)
 - [Price Aggregated Book](https://docs.poloniex.com/#price-aggregated-book) Websocket
   API gives the current order book data, and updates to it.
+  API communication and response types are in [order_book.rs](src/order_book.rs)
 
 ## Devops
 
@@ -46,8 +48,7 @@ Project is built in Github Actions continuous integration, which also deploys
 the built application to server.
 Logic is in [GH Actions workflow file](.github/workflows).
 
-Environment is set up with Ansible scripts under
-[ansible](ansible).
+Environment is set up with Ansible scripts under [ansible](ansible).
 
 Database migrations under [migrations](migrations) follow
 [Diesel](https://diesel.rs/) migration scheme. Currently database migrations
@@ -56,6 +57,9 @@ are not included in ansible, and must be run manually with
 ```
 diesel migration run
 ```
+
+Database schema is in [schema.rs](src/schema.rs) (updates automatically according
+to migration runs) and models in [models.rs](src/models.rs) (must be updated manually).
 
 Operations are organized so that data fetching and analyzing is done with one
 binary [fetch_data.rs](src/bin/fetch_data.rs) and after the analysis
