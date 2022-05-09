@@ -1,9 +1,9 @@
 ---
 - name: Add data fetching to crontab
   cron:
-    name: "fetch data"
+    name: "fetch data and start a trade"
     hour: "*"
     minute: "*/5"
     weekday: "*"
     user: "root"
-    job: "DATABASE_URL=postgres://{{ db_user }}:{{ db_pass }}@localhost/{{ db_name }} /root/bot/target/release/fetch_data > /dev/null"
+    job: "DATABASE_URL=postgres://{{ db_user }}:{{ db_pass }}@localhost/{{ db_name }} /root/bot/target/release/fetch_data > /dev/null && DATABASE_URL=postgres://{{ db_user }}:{{ db_pass }}@localhost/{{ db_name }} /root/bot/target/release/select_trade > /dev/null"
