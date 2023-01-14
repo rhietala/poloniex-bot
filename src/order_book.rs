@@ -169,7 +169,7 @@ pub fn parse_orderbook(input: Value) -> Option<OrderBook> {
 }
 
 pub fn do_buy(
-    connection: &PgConnection,
+    connection: &mut PgConnection,
     trade: &Trade,
     lowest_ask: OrderBookEntry,
 ) -> Result<Option<Trade>, Box<dyn std::error::Error>> {
@@ -184,7 +184,7 @@ pub fn do_buy(
     Ok(Some(updated_trade))
 }
 
-pub fn do_trade(connection: &PgConnection, trade: &Trade) {
+pub fn do_trade(connection: &mut PgConnection, trade: &Trade) {
     let (mut socket, _response) = connect(Url::parse(API_URL).unwrap()).expect("Can't connect");
 
     let subscribe_command = Command {
@@ -234,7 +234,6 @@ pub fn do_trade(connection: &PgConnection, trade: &Trade) {
             diesel::delete(trades.filter(id.eq(trade.id)))
                 .execute(connection)
                 .unwrap();
-
         }
         if !continue_trade {
             break;
@@ -244,7 +243,7 @@ pub fn do_trade(connection: &PgConnection, trade: &Trade) {
 }
 
 fn check_sell(
-    connection: &PgConnection,
+    connection: &mut PgConnection,
     trade: &Trade,
     highest_bid: OrderBookEntry,
 ) -> Result<bool, Box<dyn std::error::Error>> {
@@ -279,7 +278,7 @@ fn check_sell(
 }
 
 fn do_message(
-    connection: &PgConnection,
+    connection: &mut PgConnection,
     trade: &Trade,
     msg: Value,
     mut order_book: Option<OrderBook>,
@@ -308,8 +307,7 @@ fn do_message(
                 if highest_bid.price < trade.target.into() {
                     println!(
                         "{} highest bid ({:?}) below target ({:?}) => no action",
-                        trade.quote,
-                        highest_bid.price, trade.target
+                        trade.quote, highest_bid.price, trade.target
                     );
 
                     return (false, None, None, None);
@@ -320,7 +318,7 @@ fn do_message(
                     Some(bt) => {
                         println!("{} buy at {}", bt.quote, bt.open.unwrap());
                         buy_value = bt.open
-                    },
+                    }
                     None => (),
                 }
                 prev_highest_bid = Some(highest_bid.price)

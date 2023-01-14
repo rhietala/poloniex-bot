@@ -11,7 +11,7 @@ use self::poloniex_bot::*;
 const BASE: &str = "USDT";
 
 fn create_trade(
-    connection: &PgConnection,
+    connection: &mut PgConnection,
     shortlist: &Shortlist,
 ) -> Result<Trade, Box<dyn std::error::Error>> {
     use self::schema::trades;
@@ -33,7 +33,7 @@ fn create_trade(
 }
 
 fn is_trade_open(
-    connection: &PgConnection,
+    connection: &mut PgConnection,
     shortlist: &Shortlist,
 ) -> Result<bool, Box<dyn std::error::Error>> {
     use self::schema::trades::dsl::*;
@@ -54,7 +54,7 @@ fn is_trade_open(
 }
 
 fn get_shortlist(
-    connection: &PgConnection,
+    connection: &mut PgConnection,
 ) -> Result<Option<Shortlist>, Box<dyn std::error::Error>> {
     use self::schema::shortlist::dsl::*;
 
@@ -77,22 +77,22 @@ fn get_shortlist(
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let connection = establish_connection();
+    let connection = &mut establish_connection();
 
     println!("Looking up the best entry from shortlist");
 
-    let shortlist = get_shortlist(&connection).unwrap();
+    let shortlist = get_shortlist(connection).unwrap();
 
     match shortlist {
         Some(shortlist) => {
             println!("Found {:?}", shortlist.quote);
 
-            if is_trade_open(&connection, &shortlist).unwrap() {
+            if is_trade_open(connection, &shortlist).unwrap() {
                 println!("Trade already ongoing");
             } else {
                 println!("Starting to trade");
-                let trade = create_trade(&connection, &shortlist).unwrap();
-                do_trade(&connection, &trade);
+                let trade = create_trade(connection, &shortlist).unwrap();
+                do_trade(connection, &trade);
             }
         }
         None => (),

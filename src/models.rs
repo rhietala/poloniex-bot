@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use super::schema::{candles, shortlist, trades};
 
 #[derive(Debug, Insertable, Queryable)]
-#[table_name="candles"]
+#[diesel(table_name = candles)]
 pub struct Candle {
     pub base: String,
     pub quote: String,
@@ -18,7 +18,7 @@ pub struct Candle {
 }
 
 #[derive(Debug, Insertable, Queryable, Clone)]
-#[table_name="shortlist"]
+#[diesel(table_name = shortlist)]
 pub struct Shortlist {
     pub quote: String,
     pub timestamp: DateTime<Utc>,
@@ -28,7 +28,7 @@ pub struct Shortlist {
 }
 
 #[derive(Debug, Identifiable, Insertable, Queryable, Clone)]
-#[table_name="trades"]
+#[diesel(table_name = trades)]
 pub struct Trade {
     pub id: i32,
     pub base: String,
@@ -42,7 +42,7 @@ pub struct Trade {
 }
 
 #[derive(Debug, Insertable)]
-#[table_name="trades"]
+#[diesel(table_name = trades)]
 pub struct NewTrade {
     pub base: String,
     pub quote: String,

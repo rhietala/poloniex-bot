@@ -19,17 +19,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let quotes = return_ticker(BASE.to_string()).unwrap();
 
-    let connection = establish_connection();
+    let connection = &mut establish_connection();
     let period = i32::try_from(PERIOD)?;
 
     for quote in quotes {
-        match return_chart_data(
-            &connection,
-            BASE.to_string(),
-            quote.clone(),
-            PERIOD,
-            CANDLES,
-        ) {
+        match return_chart_data(connection, BASE.to_string(), quote.clone(), PERIOD, CANDLES) {
             Ok(chart_datas) => {
                 let candles: Vec<Candle> = chart_datas
                     .iter()
@@ -40,14 +34,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 diesel::insert_into(candles::table)
                     .values(&candles)
-                    .execute(&connection)?;
+                    .execute(connection)?;
             }
-            Err(_) => ()
+            Err(_) => (),
         }
     }
 
-    update_trades(&connection, BASE.to_string(), period)?;
-    update_shortlist(&connection, BASE.to_string(), period)?;
+    update_trades(connection, BASE.to_string(), period)?;
+    update_shortlist(connection, BASE.to_string(), period)?;
 
     Ok(())
 }

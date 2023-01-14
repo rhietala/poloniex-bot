@@ -61,7 +61,7 @@ pub fn get_analyze_sql(base: String, period: i32) -> String {
 }
 
 pub fn update_shortlist(
-    connection: &PgConnection,
+    connection: &mut PgConnection,
     base: String,
     period: i32,
 ) -> Result<usize, diesel::result::Error> {
@@ -132,7 +132,7 @@ pub fn update_shortlist(
 }
 
 pub fn update_trades(
-    connection: &PgConnection,
+    connection: &mut PgConnection,
     base: String,
     period: i32,
 ) -> Result<usize, diesel::result::Error> {

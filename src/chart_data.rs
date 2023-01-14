@@ -32,7 +32,7 @@ pub fn chart_data_to_candle(
         base: base,
         quote: quote,
         period: period,
-        timestamp: Utc.timestamp(cd.date.into(), 0),
+        timestamp: Utc.timestamp_opt(cd.date.into(), 0).unwrap(),
         high: Some(cd.high),
         low: Some(cd.low),
         open: Some(cd.open),
@@ -43,7 +43,7 @@ pub fn chart_data_to_candle(
 }
 
 pub fn return_chart_data(
-    connection: &PgConnection,
+    connection: &mut PgConnection,
     base: String,
     quote: String,
     period: i32,
@@ -83,7 +83,7 @@ pub fn return_chart_data(
 }
 
 pub fn get_start_timestamp(
-    connection: &PgConnection,
+    connection: &mut PgConnection,
     base_p: String,
     quote_p: String,
     period_p: i32,
