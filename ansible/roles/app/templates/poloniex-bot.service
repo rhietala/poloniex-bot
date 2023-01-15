@@ -1,0 +1,17 @@
+[Unit]
+Description=Poloniex bot trader
+After=syslog.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/root/bot
+ExecStart=/root/bot/target/release/select_trade
+StandardOutput=syslog
+StandardError=syslog
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=poloniex-bot.target

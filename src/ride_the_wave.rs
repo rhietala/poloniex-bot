@@ -103,7 +103,8 @@ pub fn update_shortlist(
           -- filter out instruments
           AND quote NOT LIKE '%BULL'
           AND quote NOT LIKE '%BEAR'
-          AND quote != 'GLYPH'
+          -- filter out stablecoins
+          AND quote NOT IN ('TUSD', 'USDC', 'USDT', 'PAX', 'GUSD', 'DAI', 'BUSD')
         GROUP BY
           quote,
           base,
@@ -134,9 +135,7 @@ pub fn update_shortlist(
           AND average > ma_short
           AND ma_short > ma_med
           AND ma_med > ma_long
-          -- filter out too small changes from moving average (stablecoins)
-          AND (average / ma_med) > 1.001
-          -- and too large changes, too strange situations
+          -- too large change, too strange situation
           AND (average / ma_med) < 1.100
           -- too big %-change in last candle
           AND volatility_med < 0.05

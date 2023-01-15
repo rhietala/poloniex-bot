@@ -55,6 +55,7 @@ Database migrations under [migrations](migrations) follow
 are not included in ansible, and must be run manually with
 
 ```
+cargo install diesel_cli
 diesel migration run
 ```
 

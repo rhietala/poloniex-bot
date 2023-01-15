@@ -1,0 +1,22 @@
+extern crate diesel;
+extern crate poloniex_bot;
+
+use self::order_book::do_trade;
+use self::poloniex_bot::*;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = std::env::args().collect::<Vec<_>>();
+    let connection = &mut establish_connection();
+
+    let trade_id: i32 = match args.get(1) {
+        Some(id) => id.parse().unwrap(),
+        None => {
+            println!("Usage: {} <trade_id>", args[0]);
+            return Ok(());
+        }
+    };
+
+    do_trade(connection, trade_id);
+
+    Ok(())
+}

@@ -42,6 +42,8 @@
       - "libpq5"
       - "libpq-dev"
       - "python3-psycopg2"
+      - "pkg-config"
+      - "libssl-dev"
 
 # without this, there was an error when enabling the firewall:
 # ERROR: problem running ufw-init

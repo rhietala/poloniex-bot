@@ -184,8 +184,12 @@ pub fn do_buy(
     Ok(Some(updated_trade))
 }
 
-pub fn do_trade(connection: &mut PgConnection, trade: &Trade) {
+pub fn do_trade(connection: &mut PgConnection, trade_id: i32) {
+    use crate::schema::trades::dsl::*;
     let (mut socket, _response) = connect(Url::parse(API_URL).unwrap()).expect("Can't connect");
+
+    // fetch trade by id
+    let trade: Trade = trades.find(trade_id).first(connection).unwrap();
 
     let subscribe_command = Command {
         command: "subscribe".to_string(),
@@ -216,7 +220,7 @@ pub fn do_trade(connection: &mut PgConnection, trade: &Trade) {
             for msg in parsed.messages.into_iter() {
                 let ret = do_message(
                     connection,
-                    trade,
+                    &trade,
                     msg,
                     order_book,
                     buy_value,
@@ -262,7 +266,12 @@ fn check_sell(
         .unwrap();
     let current_trade = rows.get(0).unwrap();
 
-    if f64::from(current_trade.target) > highest_bid.price {
+    // close trade if current bid is below target,
+    // or take profit if the bid is at +5% from target
+    // (inside the same candle)
+    if current_trade.target as f64 > highest_bid.price
+        || highest_bid.price / current_trade.target as f64 > 1.05
+    {
         println!(
             "{} closing trade at {}: {:.1}%",
             current_trade.quote,
@@ -309,10 +318,20 @@ fn do_message(
                 None,
                 _,
             ) => {
-                // if highest bid is below the target, don't even start to trade
+                // if highest bid is below the target, don't start trade
                 if highest_bid.price < trade.target.into() {
                     println!(
                         "{} highest bid ({:?}) below target ({:?}) => no action",
+                        trade.quote, highest_bid.price, trade.target
+                    );
+
+                    return (false, None, None, None);
+                }
+
+                // if highest bid is too high compared to target, don't start trade
+                if (highest_bid.price - f64::from(trade.target)) / f64::from(trade.target) > 0.02 {
+                    println!(
+                        "{} highest bid ({:?}) too high above target ({:?}) => no action",
                         trade.quote, highest_bid.price, trade.target
                     );
 
