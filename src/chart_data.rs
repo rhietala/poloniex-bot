@@ -1,7 +1,7 @@
 extern crate diesel;
 
 use chrono::{TimeZone, Utc};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::models::*;
 use diesel::prelude::*;
@@ -10,16 +10,43 @@ const API_URL: &str = "https://poloniex.com/public";
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct PoloniexChartData {
-    pub date: i32,
+    #[serde(deserialize_with = "deserialize_date")]
+    pub date: i64,
+    #[serde(deserialize_with = "deserialize_f32_from_str")]
     pub high: f32,
+    #[serde(deserialize_with = "deserialize_f32_from_str")]
     pub low: f32,
+    #[serde(deserialize_with = "deserialize_f32_from_str")]
     pub open: f32,
+    #[serde(deserialize_with = "deserialize_f32_from_str")]
     pub close: f32,
+    #[serde(deserialize_with = "deserialize_f32_from_str")]
     pub volume: f32,
-    #[serde(rename = "quoteVolume")]
+    #[serde(rename = "quoteVolume", deserialize_with = "deserialize_f32_from_str")]
     pub quote_volume: f32,
-    #[serde(rename = "weightedAverage")]
+    #[serde(
+        rename = "weightedAverage",
+        deserialize_with = "deserialize_f32_from_str"
+    )]
     pub weighted_average: f32,
+}
+
+fn deserialize_date<'de, D>(deserializer: D) -> Result<i64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    s[..s.len() - 3]
+        .parse::<i64>()
+        .map_err(serde::de::Error::custom)
+}
+
+fn deserialize_f32_from_str<'de, D>(deserializer: D) -> Result<f32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    s.parse::<f32>().map_err(serde::de::Error::custom)
 }
 
 pub fn chart_data_to_candle(
@@ -32,7 +59,7 @@ pub fn chart_data_to_candle(
         base: base,
         quote: quote,
         period: period,
-        timestamp: Utc.timestamp_opt(cd.date.into(), 0).unwrap(),
+        timestamp: Utc.timestamp_opt(cd.date, 0).unwrap(),
         high: Some(cd.high),
         low: Some(cd.low),
         open: Some(cd.open),
@@ -64,7 +91,7 @@ pub fn return_chart_data(
         end.to_string().as_str()
     );
 
-    let ret = client
+    let response = client
         .get(API_URL)
         .query(&[
             ("command", "returnChartData"),
@@ -73,13 +100,21 @@ pub fn return_chart_data(
             ("start", start.to_string().as_str()),
             ("end", end.to_string().as_str()),
         ])
-        .send()?
-        .json::<Vec<PoloniexChartData>>()?
-        .into_iter()
-        .filter(|cd| cd.date != 0)
-        .collect();
+        .send()?;
 
-    Ok(ret)
+    if response.status().is_success() {
+        let chart_data: Vec<PoloniexChartData> = response
+            .json::<Vec<PoloniexChartData>>()?
+            .into_iter()
+            .filter(|cd| cd.date != 0)
+            .collect();
+        Ok(chart_data)
+    } else {
+        Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Request not successful: {}", response.status()),
+        )))
+    }
 }
 
 pub fn get_start_timestamp(

@@ -17,6 +17,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use self::schema::candles;
     use self::ticker::*;
 
+    // let quotes: Vec<String> = vec!["BTC", "ETH"]
+    //     .into_iter()
+    //     .map(|s| s.to_string())
+    //     .collect();
+
     let quotes = return_ticker(BASE.to_string()).unwrap();
 
     let connection = &mut establish_connection();
@@ -32,11 +37,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     })
                     .collect();
 
+                println!("{}: {}", quote, candles.len());
                 diesel::insert_into(candles::table)
                     .values(&candles)
                     .execute(connection)?;
             }
-            Err(_) => (),
+            Err(e) => println!("Error fetching {}: {}", quote, e),
         }
     }
 

@@ -226,6 +226,12 @@ pub fn do_trade(connection: &mut PgConnection, trade: &Trade) {
                 order_book = ret.1;
                 buy_value = ret.2;
                 prev_highest_bid = ret.3;
+
+                // don't overwrite continue_trade with possible other messages in the
+                // same batch
+                if !continue_trade {
+                    break;
+                }
             }
         }
         if !continue_trade && order_book == None {

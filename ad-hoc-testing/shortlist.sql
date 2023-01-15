@@ -1,0 +1,7 @@
+INSERT INTO shortlist
+    VALUES ('BTC', CURRENT_TIMESTAMP, 20629.39, 20629.39, 1);
+
+SELECT
+    *
+FROM
+    shortlist

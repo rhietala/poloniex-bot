@@ -51,23 +51,23 @@
 
 # Use hardware firewall
 
-- name: Disable IPv6 in UFW
-  lineinfile:
-    path: "/etc/default/ufw"
-    regexp: "^IPV6="
-    line: "IPV6=no"
+# - name: Disable IPv6 in UFW
+#   lineinfile:
+#     path: "/etc/default/ufw"
+#     regexp: "^IPV6="
+#     line: "IPV6=no"
 
-- name: Open SSH port in firewall
-  ufw:
-    rule: "allow"
-    port: "ssh"
-    proto: "tcp"
+# - name: Open SSH port in firewall
+#   ufw:
+#     rule: "allow"
+#     port: "ssh"
+#     proto: "tcp"
 
-- name: Start firewall with default rule deny and disable logging
-  ufw:
-    state: "enabled"
-    policy: "deny"
-    logging: "off"
+# - name: Start firewall with default rule deny and disable logging
+#   ufw:
+#     state: "enabled"
+#     policy: "deny"
+#     logging: "off"
 
 # UNATTENDED UPGRADES
 # https://wiki.debian.org/UnattendedUpgrades

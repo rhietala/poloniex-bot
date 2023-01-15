@@ -15,6 +15,7 @@ pub fn get_analyze_sql(base: String, period: i32) -> String {
           DISTINCT ON (quote) quote,
           timestamp,
           average,
+          volume,
           -- short moving average
           AVG(average) OVER(
             PARTITION BY quote,
@@ -41,7 +42,24 @@ pub fn get_analyze_sql(base: String, period: i32) -> String {
             ORDER BY
               timestamp ROWS BETWEEN {ma_long} PRECEDING
               AND CURRENT ROW
-          ) AS ma_long
+          ) AS ma_long,
+          -- short window volume
+          SUM(volume * average) OVER(
+            PARTITION BY quote,
+            base,
+            period
+            ORDER BY
+              timestamp ROWS BETWEEN {ma_short} PRECEDING
+              AND CURRENT ROW
+          ) AS base_volume_short,
+          MAX((high - low) / low) OVER(
+            PARTITION BY quote,
+            base,
+            period
+            ORDER BY
+              timestamp ROWS BETWEEN {ma_med} PRECEDING
+              AND CURRENT ROW
+          ) AS volatility_med
         FROM
           candles
         WHERE
@@ -91,14 +109,11 @@ pub fn update_shortlist(
           base,
           period
         HAVING
-          -- filter out those with too small daily volume in base unit (USDT)
-          SUM(volume) > 10000
-          -- filter out those that don't have recent data
-          AND MAX(timestamp) > (current_timestamp - interval '30 minutes')
-          -- filter out those with too small minimum quote value
-          -- (these have too high %-change with single pips)
+          -- no recent data
+          MAX(timestamp) > (current_timestamp - interval '30 minutes')
+          -- too small minimum quote value (these have too high %-change with single pips)
           AND MIN(average) > 1e-6
-          -- filter out those that are missing more than 5 candles from the longest MA period
+          -- more than 5 candles missing from the longest MA period
           AND count(*) > ({max_seconds} / {period}) - 5
       ),
       {analyzed}
@@ -112,15 +127,19 @@ pub fn update_shortlist(
         (SELECT * FROM analyzed) AS analyzed
       WHERE
         (
+          -- filter out those with too small volume in base unit (USDT), short window
+          base_volume_short > 2000
           -- actual logic: current value must be above 10-period moving average,
           -- which must be above 30-period MA, which must be above 200-period MA
-          average > ma_short
+          AND average > ma_short
           AND ma_short > ma_med
           AND ma_med > ma_long
           -- filter out too small changes from moving average (stablecoins)
           AND (average / ma_med) > 1.001
           -- and too large changes, too strange situations
           AND (average / ma_med) < 1.100
+          -- too big %-change in last candle
+          AND volatility_med < 0.05
         ) is true);
     ",
         max_seconds = max_seconds,

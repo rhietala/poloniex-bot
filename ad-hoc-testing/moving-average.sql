@@ -71,12 +71,9 @@ ORDER BY quote, timestamp DESC;
 
 SELECT
   raw.quote,
-  raw.average / raw.ma30 as rise,
   raw.average,
-  raw.ma10,
-  raw.ma30,
-  raw.ma200,
-  raw.average > raw.ma10 AND raw.ma10 > raw.ma30 AND raw.ma30 > raw.ma200 as NOUSEEKO
+  raw.volatility,
+  raw.ma10
 FROM
   (
 SELECT
@@ -106,7 +103,15 @@ SELECT
     ORDER BY
       timestamp ROWS BETWEEN 200 PRECEDING
       AND CURRENT ROW
-  ) AS ma200
+  ) AS ma200,
+  MAX((high - low) / low) OVER(
+    PARTITION BY quote,
+    base,
+    period
+    ORDER BY
+      timestamp ROWS BETWEEN 30 PRECEDING
+      AND CURRENT ROW
+  ) AS volatility
 FROM
   candles
 WHERE
@@ -126,7 +131,7 @@ WHERE
       base,
       period
     HAVING
-      SUM(volume) > 3000
+      SUM(average * volume) > 3000
       AND MAX(timestamp) > (current_timestamp - interval '30 minutes')
   )
 ORDER BY
