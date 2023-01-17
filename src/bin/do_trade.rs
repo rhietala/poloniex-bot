@@ -1,8 +1,8 @@
 extern crate diesel;
 extern crate poloniex_bot;
 
-use self::order_book::do_trade;
 use self::poloniex_bot::*;
+use self::trade_logic::do_trade;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = std::env::args().collect::<Vec<_>>();

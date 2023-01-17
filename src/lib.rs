@@ -5,14 +5,19 @@ extern crate dotenv;
 pub mod chart_data;
 pub mod models;
 pub mod order_book;
-pub mod ride_the_wave;
 pub mod schema;
+pub mod shortlist;
+pub mod shortlist_logic;
 pub mod ticker;
+pub mod trade;
+pub mod trade_logic;
 
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use dotenv::dotenv;
 use std::env;
+
+pub const BASE: &str = "USDT";
 
 pub fn establish_connection() -> PgConnection {
     dotenv().ok();

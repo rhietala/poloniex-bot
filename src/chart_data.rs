@@ -49,6 +49,7 @@ where
     s.parse::<f32>().map_err(serde::de::Error::custom)
 }
 
+/// Convert poloniex chart data to Candle object
 pub fn chart_data_to_candle(
     base: String,
     quote: String,
@@ -69,6 +70,40 @@ pub fn chart_data_to_candle(
     }
 }
 
+/// Get the last candle timestamp in database
+///
+/// Used for fetching new data starting from this timestamp
+fn get_start_timestamp(
+    connection: &mut PgConnection,
+    base_p: String,
+    quote_p: String,
+    period_p: i32,
+    max_candles: i32,
+) -> Result<i32, Box<dyn std::error::Error>> {
+    use crate::schema::candles::dsl::*;
+
+    let results = candles
+        .filter(base.eq(base_p))
+        .filter(quote.eq(quote_p))
+        .filter(period.eq(period))
+        .order(timestamp.desc())
+        .limit(1)
+        .load::<Candle>(connection)?;
+
+    // candle found
+    for candle in results {
+        let last_timestamp: i32 = candle.timestamp.timestamp().try_into().unwrap();
+        return Ok(last_timestamp + period_p);
+    }
+
+    let now = Utc::now().timestamp();
+    let end = i32::try_from(now)?;
+    let start = end - (max_candles * period_p);
+
+    Ok(start)
+}
+
+/// Fetch chart data from poloniex
 pub fn return_chart_data(
     connection: &mut PgConnection,
     base: String,
@@ -80,16 +115,6 @@ pub fn return_chart_data(
     let now = Utc::now().timestamp();
     let end = i32::try_from(now)?;
     let start = get_start_timestamp(connection, base.clone(), quote.clone(), period, max_candles)?;
-
-    println!(
-        "{}: {}?command=returnChartData&currencyPair={}&period={}&start={}&end={}",
-        quote,
-        API_URL,
-        format!("{}_{}", base, quote).as_str(),
-        period.to_string().as_str(),
-        start.to_string().as_str(),
-        end.to_string().as_str()
-    );
 
     let response = client
         .get(API_URL)
@@ -115,35 +140,4 @@ pub fn return_chart_data(
             format!("Request not successful: {}", response.status()),
         )))
     }
-}
-
-pub fn get_start_timestamp(
-    connection: &mut PgConnection,
-    base_p: String,
-    quote_p: String,
-    period_p: i32,
-    max_candles: i32,
-) -> Result<i32, Box<dyn std::error::Error>> {
-    use crate::schema::candles::dsl::*;
-
-    let results = candles
-        .filter(base.eq(base_p))
-        .filter(quote.eq(quote_p))
-        .filter(period.eq(period))
-        .order(timestamp.desc())
-        .limit(1)
-        .load::<Candle>(connection)
-        .expect("Error loading candles");
-
-    // candle found
-    for candle in results {
-        let last_timestamp: i32 = candle.timestamp.timestamp().try_into().unwrap();
-        return Ok(last_timestamp + period_p);
-    }
-
-    let now = Utc::now().timestamp();
-    let end = i32::try_from(now)?;
-    let start = end - (max_candles * period_p);
-
-    Ok(start)
 }

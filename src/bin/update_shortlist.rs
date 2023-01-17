@@ -9,7 +9,7 @@ const PERIOD: i32 = 900;
 const BASE: &str = "USDT";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use self::ride_the_wave::update_shortlist;
+    use self::shortlist_logic::update_shortlist;
 
     let connection = &mut establish_connection();
     let period = i32::try_from(PERIOD)?;

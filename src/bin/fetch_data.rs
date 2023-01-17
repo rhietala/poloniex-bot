@@ -13,8 +13,8 @@ const BASE: &str = "USDT";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use self::chart_data::*;
-    use self::ride_the_wave::{update_shortlist, update_trades};
     use self::schema::candles;
+    use self::shortlist_logic::{update_shortlist, update_trades};
     use self::ticker::*;
 
     // let quotes: Vec<String> = vec!["BTC", "ETH"]
