@@ -122,7 +122,7 @@ pub fn update_shortlist(
         quote,
         NOW(),
         average,
-        ma_short as target,
+        GREATEST(ma_med, average * 0.97) as target,
         average / ma_med as confidence
       FROM
         (SELECT * FROM analyzed) AS analyzed
@@ -173,7 +173,7 @@ pub fn update_trades(
         (
           SELECT
             quote,
-            ma_short
+            GREATEST(ma_med, average * 0.97)
           FROM
             analyzed
         ) as temp(quote, target)
