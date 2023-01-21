@@ -178,10 +178,13 @@ pub fn update_trades(
             analyzed
         ) as temp(quote, target)
       WHERE
+        trades.base = '{base}' AND
         trades.quote = temp.quote AND
-        trades.close_at IS NULL
+        trades.close_at IS NULL AND
+        trades.target < temp.target
     ",
-        analyzed = get_analyze_sql(base, period)
+        base = base.clone(),
+        analyzed = get_analyze_sql(base, period),
     ))
     .execute(connection)
 }
