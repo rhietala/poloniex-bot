@@ -18,6 +18,7 @@ pub fn create_trade(
         target: shortlist.target,
         open_average: shortlist.average,
         open_at: Utc::now(),
+        updated_at: Utc::now(),
     };
 
     let trade = diesel::insert_into(trades::table)

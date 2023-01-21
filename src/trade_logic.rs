@@ -97,7 +97,7 @@ fn do_buy(
 fn check_sell(
     connection: &mut PgConnection,
     trade: &Trade,
-    highest_bid: OrderBookEntry,
+    highest_bid_ob: OrderBookEntry,
 ) -> Result<bool, Box<dyn std::error::Error>> {
     use crate::schema::trades::dsl::*;
 
@@ -111,26 +111,37 @@ fn check_sell(
     // close trade if current bid is below target,
     // or take profit if the bid is at +5% from target
     // (inside the same candle)
-    if current_trade.target as f64 > highest_bid.price
-        || highest_bid.price / current_trade.target as f64 > 1.05
+    if current_trade.target as f64 > highest_bid_ob.price
+        || highest_bid_ob.price / current_trade.target as f64 > 1.05
     {
         println!(
             "{} closing trade at {}: {:.1}%",
             current_trade.quote,
-            highest_bid.price,
-            ((highest_bid.price / f64::from(current_trade.open.unwrap())) - 1.0) * 100.0
+            highest_bid_ob.price,
+            ((highest_bid_ob.price / f64::from(current_trade.open.unwrap())) - 1.0) * 100.0
         );
 
         diesel::update(trade)
             .set((
                 close_at.eq(Utc::now()),
-                close.eq(Some(highest_bid.price as f32)),
+                close.eq(Some(highest_bid_ob.price as f32)),
             ))
             .execute(connection)
             .unwrap();
 
         return Ok(false);
     }
+
+    // update trade based on heartbeat so that we'll know if the websocket
+    // connection is still alive
+    diesel::update(trade)
+        .set((
+            updated_at.eq(Utc::now()),
+            highest_bid.eq(Some(highest_bid_ob.price as f32)),
+        ))
+        .execute(connection)
+        .unwrap();
+
     Ok(true)
 }
 

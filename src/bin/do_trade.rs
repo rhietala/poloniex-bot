@@ -16,7 +16,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    do_trade(connection, trade_id);
+    do_trade(connection, trade_id.clone());
 
+    println!("do_trade {} finished", trade_id);
     Ok(())
 }

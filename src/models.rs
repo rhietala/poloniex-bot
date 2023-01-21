@@ -35,10 +35,12 @@ pub struct Trade {
     pub quote: String,
     pub open_at: DateTime<Utc>,
     pub close_at: Option<DateTime<Utc>>,
+    pub updated_at: DateTime<Utc>,
     pub open_average: f32,
     pub target: f32,
     pub open: Option<f32>,
     pub close: Option<f32>,
+    pub highest_bid: Option<f32>,
 }
 
 #[derive(Debug, Insertable)]
@@ -49,4 +51,5 @@ pub struct NewTrade {
     pub target: f32,
     pub open_average: f32,
     pub open_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }

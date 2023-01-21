@@ -30,10 +30,12 @@ table! {
         quote -> Varchar,
         open_at -> Timestamptz,
         close_at -> Nullable<Timestamptz>,
+        updated_at -> Timestamptz,
         open_average -> Float4,
         target -> Float4,
         open -> Nullable<Float4>,
         close -> Nullable<Float4>,
+        highest_bid -> Nullable<Float4>,
     }
 }
 

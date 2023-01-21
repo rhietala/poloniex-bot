@@ -5,8 +5,10 @@ CREATE TABLE trades (
   quote VARCHAR(20) NOT NULL,
   open_at TIMESTAMPTZ NOT NULL,
   close_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ NOT NULL,
   open_average REAL NOT NULL,
   target REAL NOT NULL,
   open REAL,
-  close REAL
+  close REAL,
+  highest_bid REAL
 )
