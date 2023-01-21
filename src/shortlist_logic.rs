@@ -104,7 +104,7 @@ pub fn update_shortlist(
           AND quote NOT LIKE '%BULL'
           AND quote NOT LIKE '%BEAR'
           -- filter out stablecoins
-          AND quote NOT IN ('TUSD', 'USDC', 'USDT', 'PAX', 'GUSD', 'DAI', 'BUSD')
+          AND quote NOT IN ('BUSD', 'DAI', 'GUSD', 'PAX', 'TUSD', 'USDC', 'USDD', 'USDD', 'USDH', 'USDJ', 'USDP', 'USDT')
         GROUP BY
           quote,
           base,
