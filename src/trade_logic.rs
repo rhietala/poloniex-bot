@@ -30,8 +30,8 @@ pub fn do_trade(connection: &mut PgConnection, trade_id: i32) {
 
     let mut channel_id: Option<u32> = None;
     let mut order_book: Option<OrderBook> = None;
-    let mut buy_value: Option<f32> = None;
-    let mut prev_highest_bid: Option<f64> = None;
+    let mut buy_value: Option<f32> = trade.open;
+    let mut prev_highest_bid: Option<f64> = trade.highest_bid.map(|x| x as f64);
     let mut continue_trade: bool = true;
 
     loop {

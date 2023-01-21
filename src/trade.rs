@@ -46,3 +46,16 @@ pub fn is_trade_open(
 
     Ok(rows.len() > 0)
 }
+
+/// Gets all open trades
+pub fn get_trades(connection: &mut PgConnection) -> Result<Vec<Trade>, Box<dyn std::error::Error>> {
+    use super::schema::trades::dsl::*;
+
+    let rows = trades
+        .filter(base.eq(BASE))
+        .filter(close_at.is_null())
+        .load::<Trade>(connection)
+        .unwrap();
+
+    Ok(rows)
+}
