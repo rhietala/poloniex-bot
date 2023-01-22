@@ -10,14 +10,11 @@ use crate::order_book::*;
 
 const API_URL: &str = "wss://api2.poloniex.com";
 
-// take profit if trade is at this amount inside the same candle
-const TAKE_PROFIT: f32 = 0.05;
-
 // allow trade to drop by this amount before closing
-const STOP_LOSS: f64 = 0.03;
+pub const STOP_LOSS: f64 = 0.015;
 
 // when updating trades, increase target at least by this amount
-const CONSTANT_RISE: f64 = 0.0025;
+pub const CONSTANT_RISE: f64 = 0.0025;
 
 pub fn do_trade(
     connection: &mut PgConnection,
@@ -115,10 +112,8 @@ fn check_sell(
     let tgt: f32 = current_trade.target;
     let cur: f32 = highest_bid_ob.price as f32;
 
-    // close trade if current bid is below target,
-    // or take profit if the bid is at +5% from target
-    // (inside the same candle)
-    if cur < tgt || cur / tgt > (1.0 + TAKE_PROFIT) {
+    // close trade if current bid is below target
+    if cur < tgt {
         let cur_open: f32 = current_trade.open.unwrap();
 
         log_trade(
@@ -138,10 +133,22 @@ fn check_sell(
         return Ok(false);
     }
 
+    // update target if current bid is more than stop loss above target
+    let take_profit_tgt = cur * (1.0 - STOP_LOSS) as f32;
+    let new_target = if take_profit_tgt > tgt {
+        take_profit_tgt
+    } else {
+        tgt
+    };
+
     // update trade based on heartbeat so that we'll know if the websocket
     // connection is still alive
     diesel::update(trade)
-        .set((updated_at.eq(Utc::now()), highest_bid.eq(Some(cur))))
+        .set((
+            updated_at.eq(Utc::now()),
+            highest_bid.eq(Some(cur)),
+            target.eq(new_target),
+        ))
         .execute(connection)?;
 
     Ok(true)

@@ -1,6 +1,7 @@
 extern crate diesel;
 
 use crate::schema::shortlist;
+use crate::trade_logic::{CONSTANT_RISE, STOP_LOSS};
 use diesel::prelude::*;
 use diesel::{delete, sql_query};
 
@@ -160,7 +161,8 @@ pub fn update_trades(
         "
       WITH filtered_symbols AS (
         SELECT
-          quote
+          quote,
+          target
         FROM
           trades
       ),
@@ -168,23 +170,24 @@ pub fn update_trades(
       UPDATE
         trades
       SET
-        target = temp.target
+        target = GREATEST(temp.target, trades.target * {constant_rise})
       FROM
         (
           SELECT
             quote,
-            GREATEST(ma_med, average * 0.97)
+            GREATEST(ma_med, average * {stop_loss})
           FROM
             analyzed
         ) as temp(quote, target)
       WHERE
         trades.base = '{base}' AND
         trades.quote = temp.quote AND
-        trades.close_at IS NULL AND
-        trades.target < temp.target
+        trades.close_at IS NULL
     ",
         base = base.clone(),
         analyzed = get_analyze_sql(base, period),
+        constant_rise = 1.0 + CONSTANT_RISE,
+        stop_loss = 1.0 - STOP_LOSS,
     ))
     .execute(connection)
 }

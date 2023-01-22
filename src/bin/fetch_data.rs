@@ -17,15 +17,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use self::shortlist_logic::{update_shortlist, update_trades};
     use self::ticker::*;
 
-    // let quotes: Vec<String> = vec!["BTC", "ETH"]
-    //     .into_iter()
-    //     .map(|s| s.to_string())
-    //     .collect();
-
     let quotes = return_ticker(BASE.to_string()).unwrap();
 
     let connection = &mut establish_connection();
-    let period = i32::try_from(PERIOD)?;
+    let period = PERIOD;
 
     for quote in quotes {
         match return_chart_data(connection, BASE.to_string(), quote.clone(), PERIOD, CANDLES) {
