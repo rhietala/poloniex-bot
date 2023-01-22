@@ -10,7 +10,19 @@ use crate::order_book::*;
 
 const API_URL: &str = "wss://api2.poloniex.com";
 
-pub fn do_trade(connection: &mut PgConnection, trade_id: i32) {
+// take profit if trade is at this amount inside the same candle
+const TAKE_PROFIT: f32 = 0.05;
+
+// allow trade to drop by this amount before closing
+const STOP_LOSS: f64 = 0.03;
+
+// when updating trades, increase target at least by this amount
+const CONSTANT_RISE: f64 = 0.0025;
+
+pub fn do_trade(
+    connection: &mut PgConnection,
+    trade_id: i32,
+) -> Result<(), Box<dyn std::error::Error>> {
     use crate::schema::trades::dsl::*;
     let (mut socket, _response) = connect(Url::parse(API_URL).unwrap()).expect("Can't connect");
 
@@ -51,7 +63,7 @@ pub fn do_trade(connection: &mut PgConnection, trade_id: i32) {
                     order_book,
                     buy_value,
                     prev_highest_bid,
-                );
+                )?;
                 continue_trade = ret.0;
                 order_book = ret.1;
                 buy_value = ret.2;
@@ -72,7 +84,7 @@ pub fn do_trade(connection: &mut PgConnection, trade_id: i32) {
                 .unwrap();
         }
         if !continue_trade {
-            break;
+            break Ok(());
         }
     }
     // socket.close(None)
@@ -81,17 +93,14 @@ pub fn do_trade(connection: &mut PgConnection, trade_id: i32) {
 fn do_buy(
     connection: &mut PgConnection,
     trade: &Trade,
-    lowest_ask: OrderBookEntry,
-) -> Result<Option<Trade>, Box<dyn std::error::Error>> {
+    lowest_ask: f32,
+) -> Result<Trade, Box<diesel::result::Error>> {
     use crate::schema::trades::dsl::*;
 
-    let new_open: f32 = lowest_ask.price as f32;
-    let updated_trade = diesel::update(trade)
-        .set((open_at.eq(Utc::now()), open.eq(Some(new_open))))
-        .get_result::<Trade>(connection)
-        .unwrap();
-
-    Ok(Some(updated_trade))
+    diesel::update(trade)
+        .set((open_at.eq(Utc::now()), open.eq(Some(lowest_ask))))
+        .get_result(connection)
+        .map_err(|e| Box::new(e))
 }
 
 fn check_sell(
@@ -101,33 +110,30 @@ fn check_sell(
 ) -> Result<bool, Box<dyn std::error::Error>> {
     use crate::schema::trades::dsl::*;
 
-    let rows = trades
-        .filter(id.eq(trade.id))
-        .limit(1)
-        .load::<Trade>(connection)
-        .unwrap();
-    let current_trade = rows.get(0).unwrap();
+    let current_trade: Trade = trades.find(trade.id).first(connection)?;
+
+    let tgt: f32 = current_trade.target;
+    let cur: f32 = highest_bid_ob.price as f32;
 
     // close trade if current bid is below target,
     // or take profit if the bid is at +5% from target
     // (inside the same candle)
-    if current_trade.target as f64 > highest_bid_ob.price
-        || highest_bid_ob.price / current_trade.target as f64 > 1.05
-    {
-        println!(
-            "{} closing trade at {}: {:.1}%",
-            current_trade.quote,
-            highest_bid_ob.price,
-            ((highest_bid_ob.price / f64::from(current_trade.open.unwrap())) - 1.0) * 100.0
+    if cur < tgt || cur / tgt > (1.0 + TAKE_PROFIT) {
+        let cur_open: f32 = current_trade.open.unwrap();
+
+        log_trade(
+            &current_trade,
+            format!(
+                "closing trade, close: {:?}, open: {:?}: {:.3}%",
+                cur,
+                cur_open,
+                cur / cur_open
+            ),
         );
 
         diesel::update(trade)
-            .set((
-                close_at.eq(Utc::now()),
-                close.eq(Some(highest_bid_ob.price as f32)),
-            ))
-            .execute(connection)
-            .unwrap();
+            .set((close_at.eq(Utc::now()), close.eq(Some(cur))))
+            .execute(connection)?;
 
         return Ok(false);
     }
@@ -135,14 +141,38 @@ fn check_sell(
     // update trade based on heartbeat so that we'll know if the websocket
     // connection is still alive
     diesel::update(trade)
-        .set((
-            updated_at.eq(Utc::now()),
-            highest_bid.eq(Some(highest_bid_ob.price as f32)),
-        ))
-        .execute(connection)
-        .unwrap();
+        .set((updated_at.eq(Utc::now()), highest_bid.eq(Some(cur))))
+        .execute(connection)?;
 
     Ok(true)
+}
+
+fn check_start(
+    connection: &mut PgConnection,
+    trade: &Trade,
+    highest_bid: f64,
+    lowest_ask: f64,
+) -> Result<(bool, Option<f64>), Box<dyn std::error::Error>> {
+    let target: f64 = trade.target as f64;
+
+    // if highest bid is below the target, don't start trade
+    if highest_bid < target {
+        log_trade_hb(trade, "won't start trade (too low)", highest_bid, target);
+        return Ok((false, None));
+    }
+
+    // if highest bid is too high compared to target, don't start trade
+    // something strange is happening
+    if highest_bid / target > (1.0 + STOP_LOSS) {
+        log_trade_hb(trade, "won't start trade (too high)", highest_bid, target);
+        return Ok((false, None));
+    }
+
+    let buy_trade = do_buy(connection, trade, lowest_ask as f32)?;
+
+    log_trade_hb(&buy_trade, "starting trade", highest_bid, target);
+
+    Ok((true, Some(highest_bid)))
 }
 
 fn do_message(
@@ -152,7 +182,7 @@ fn do_message(
     mut order_book: Option<OrderBook>,
     mut buy_value: Option<f32>,
     mut prev_highest_bid: Option<f64>,
-) -> (bool, Option<OrderBook>, Option<f32>, Option<f64>) {
+) -> Result<(bool, Option<OrderBook>, Option<f32>, Option<f64>), Box<dyn std::error::Error>> {
     let command: String = serde_json::from_value(msg[0].clone()).unwrap();
     order_book = match command.as_str() {
         // update whole order book
@@ -171,35 +201,13 @@ fn do_message(
                 None,
                 _,
             ) => {
-                // if highest bid is below the target, don't start trade
-                if highest_bid.price < trade.target.into() {
-                    println!(
-                        "{} highest bid ({:?}) below target ({:?}) => no action",
-                        trade.quote, highest_bid.price, trade.target
-                    );
-
-                    return (false, None, None, None);
+                let (ct, phb) =
+                    check_start(connection, trade, highest_bid.price, lowest_ask.price)?;
+                prev_highest_bid = phb;
+                buy_value = Some(lowest_ask.price as f32);
+                if !ct {
+                    return Ok((false, None, None, None));
                 }
-
-                // if highest bid is too high compared to target, don't start trade
-                if (highest_bid.price - f64::from(trade.target)) / f64::from(trade.target) > 0.02 {
-                    println!(
-                        "{} highest bid ({:?}) too high above target ({:?}) => no action",
-                        trade.quote, highest_bid.price, trade.target
-                    );
-
-                    return (false, None, None, None);
-                }
-
-                let buy_trade = do_buy(connection, trade, lowest_ask).unwrap();
-                match buy_trade {
-                    Some(bt) => {
-                        println!("{} buy at {}", bt.quote, bt.open.unwrap());
-                        buy_value = bt.open
-                    }
-                    None => (),
-                }
-                prev_highest_bid = Some(highest_bid.price)
             }
             (
                 OrderBookMiddle {
@@ -209,17 +217,11 @@ fn do_message(
                 Some(buy_value),
                 Some(phb),
             ) if (phb - highest_bid.price).abs() > F64_EPSILON => {
-                println!(
-                    "{} highest bid: {}, trade at {:.1}%",
-                    trade.quote,
-                    highest_bid.price,
-                    ((highest_bid.price / f64::from(buy_value)) - 1.0) * 100.0
-                );
                 prev_highest_bid = Some(highest_bid.price);
 
                 let continue_trade = check_sell(connection, trade, highest_bid).unwrap();
                 if !continue_trade {
-                    return (false, order_book, Some(buy_value), prev_highest_bid);
+                    return Ok((false, order_book, Some(buy_value), prev_highest_bid));
                 }
             }
             _ => (),
@@ -227,5 +229,22 @@ fn do_message(
         _ => (),
     };
 
-    (true, order_book, buy_value, prev_highest_bid)
+    Ok((true, order_book, buy_value, prev_highest_bid))
+}
+
+pub fn log_trade(trade: &Trade, message: String) {
+    println!("TRADE {}, {}: {}", trade.id, trade.quote, message);
+}
+
+pub fn log_trade_hb(trade: &Trade, message: &str, highest_bid: f64, target: f64) {
+    log_trade(
+        trade,
+        format!(
+            "{}, highest bid: {:?}, target: {:?}: {:.3}%",
+            message,
+            highest_bid,
+            target,
+            highest_bid / target
+        ),
+    );
 }
