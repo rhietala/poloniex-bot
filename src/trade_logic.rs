@@ -16,6 +16,10 @@ pub const STOP_LOSS: f64 = 0.015;
 // when updating trades, increase target at least by this amount
 pub const CONSTANT_RISE: f64 = 0.0025;
 
+// when checking for for buying or selling, don't do either if
+// spread (higest bid - lowest ask) is less than this
+pub const MAX_SPREAD: f64 = 0.0025;
+
 pub fn do_trade(
     connection: &mut PgConnection,
     trade_id: i32,
@@ -104,6 +108,7 @@ fn check_sell(
     connection: &mut PgConnection,
     trade: &Trade,
     highest_bid_ob: OrderBookEntry,
+    lowest_ask_ob: OrderBookEntry,
 ) -> Result<bool, Box<dyn std::error::Error>> {
     use crate::schema::trades::dsl::*;
 
@@ -111,9 +116,16 @@ fn check_sell(
 
     let tgt: f32 = current_trade.target;
     let cur: f32 = highest_bid_ob.price as f32;
+    let spread: f64 = (lowest_ask_ob.price - highest_bid_ob.price) / lowest_ask_ob.price;
 
     // close trade if current bid is below target
     if cur < tgt {
+        // if the order book has too high spread, don't hurry to sell
+        if spread > MAX_SPREAD {
+            log_trade(trade, format!("spread too high, not selling, {}", spread));
+            return Ok(true);
+        }
+
         let cur_open: f32 = current_trade.open.unwrap();
 
         log_trade(
@@ -175,6 +187,12 @@ fn check_start(
         return Ok((false, None));
     }
 
+    let spread: f64 = (lowest_ask - highest_bid) / highest_bid;
+    if spread > MAX_SPREAD {
+        log_trade(trade, format!("spread too high, not buying, {}", spread));
+        return Ok((true, None));
+    }
+
     let buy_trade = do_buy(connection, trade, lowest_ask as f32)?;
 
     log_trade_hb(&buy_trade, "starting trade", highest_bid, target);
@@ -212,21 +230,22 @@ fn do_message(
                     check_start(connection, trade, highest_bid.price, lowest_ask.price)?;
                 prev_highest_bid = phb;
                 buy_value = Some(lowest_ask.price as f32);
-                if !ct {
-                    return Ok((false, None, None, None));
+                if phb == None {
+                    return Ok((ct, None, None, None));
                 }
             }
             (
                 OrderBookMiddle {
                     highest_bid: Some(highest_bid),
-                    lowest_ask: _,
+                    lowest_ask: Some(lowest_ask),
                 },
                 Some(buy_value),
                 Some(phb),
             ) if (phb - highest_bid.price).abs() > F64_EPSILON => {
                 prev_highest_bid = Some(highest_bid.price);
 
-                let continue_trade = check_sell(connection, trade, highest_bid).unwrap();
+                let continue_trade =
+                    check_sell(connection, trade, highest_bid, lowest_ask).unwrap();
                 if !continue_trade {
                     return Ok((false, order_book, Some(buy_value), prev_highest_bid));
                 }
