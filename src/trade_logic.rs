@@ -11,7 +11,7 @@ use crate::order_book::*;
 const API_URL: &str = "wss://api2.poloniex.com";
 
 // allow trade to drop by this amount before closing
-pub const STOP_LOSS: f64 = 0.015;
+pub const STOP_LOSS: f64 = 0.005;
 
 // when updating trades, increase target at least by this amount
 pub const CONSTANT_RISE: f64 = 0.0025;
@@ -98,8 +98,17 @@ fn do_buy(
 ) -> Result<Trade, Box<diesel::result::Error>> {
     use crate::schema::trades::dsl::*;
 
+    // the previous target comes from candles and is not that
+    // real-time, set it based on stoploss and start to rise
+    // from there
+    let new_target: f32 = lowest_ask * (1.0 - STOP_LOSS as f32);
+
     diesel::update(trade)
-        .set((open_at.eq(Utc::now()), open.eq(Some(lowest_ask))))
+        .set((
+            open_at.eq(Utc::now()),
+            open.eq(Some(lowest_ask)),
+            target.eq(new_target),
+        ))
         .get_result(connection)
         .map_err(|e| Box::new(e))
 }

@@ -5,7 +5,7 @@ use crate::trade_logic::{CONSTANT_RISE, STOP_LOSS};
 use diesel::prelude::*;
 use diesel::{delete, sql_query};
 
-const MA_SHORT: i32 = 3;
+const MA_SHORT: i32 = 5;
 const MA_MED: i32 = 30;
 const MA_LONG: i32 = 200;
 
