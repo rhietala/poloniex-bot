@@ -50,9 +50,9 @@ pub fn get_analyze_sql(base: String, period: i32) -> String {
             base,
             period
             ORDER BY
-              timestamp ROWS BETWEEN {ma_short} PRECEDING
+              timestamp ROWS BETWEEN {ma_med} PRECEDING
               AND CURRENT ROW
-          ) AS base_volume_short,
+          ) AS base_volume_med,
           MAX((high - low) / low) OVER(
             PARTITION BY quote,
             base,
@@ -130,16 +130,14 @@ pub fn update_shortlist(
       WHERE
         (
           -- filter out those with too small volume in base unit (USDT), short window
-          base_volume_short > 2000
+          base_volume_med > 6000
           -- actual logic: current value must be above 10-period moving average,
           -- which must be above 30-period MA, which must be above 200-period MA
           AND average > ma_short
           AND ma_short > ma_med
           AND ma_med > ma_long
-          -- too large change, too strange situation
-          AND (average / ma_med) < 1.100
           -- too big %-change in last candle
-          AND volatility_med < 0.05
+          AND volatility_med < 0.02
         ) is true);
     ",
         max_seconds = max_seconds,
