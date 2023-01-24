@@ -123,7 +123,7 @@ pub fn update_shortlist(
         quote,
         NOW(),
         average,
-        GREATEST(ma_med, average * 0.97) as target,
+        average * {stop_loss} as target,
         average / ma_med as confidence
       FROM
         (SELECT * FROM analyzed) AS analyzed
@@ -143,7 +143,8 @@ pub fn update_shortlist(
         max_seconds = max_seconds,
         base = base.clone(),
         period = period,
-        analyzed = get_analyze_sql(base, period)
+        analyzed = get_analyze_sql(base, period),
+        stop_loss = 1.0 - STOP_LOSS,
     ))
     .execute(connection)
 }
@@ -173,7 +174,7 @@ pub fn update_trades(
         (
           SELECT
             quote,
-            GREATEST(ma_med, average * {stop_loss})
+            average * {stop_loss}
           FROM
             analyzed
         ) as temp(quote, target)

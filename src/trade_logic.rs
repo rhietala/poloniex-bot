@@ -11,7 +11,11 @@ use crate::order_book::*;
 const API_URL: &str = "wss://api2.poloniex.com";
 
 // allow trade to drop by this amount before closing
+// also the start decisions are based on this
 pub const STOP_LOSS: f64 = 0.005;
+
+// start trade if lowest ask is this much above target at maximum
+pub const START_ABOVE_TARGET: f64 = 0.015;
 
 // when updating trades, increase target at least by this amount
 pub const CONSTANT_RISE: f64 = 0.0025;
@@ -191,7 +195,7 @@ fn check_start(
 
     // if highest bid is too high compared to target, don't start trade
     // something strange is happening
-    if highest_bid / target > (1.0 + STOP_LOSS) {
+    if highest_bid / target > (1.0 + START_ABOVE_TARGET) {
         log_trade_hb(trade, "won't start trade (too high)", highest_bid, target);
         return Ok((false, None));
     }
